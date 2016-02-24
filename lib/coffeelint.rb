@@ -15,6 +15,10 @@ module Coffeelint
     @path ||= File.expand_path('../../coffeelint/lib/coffeelint.js', __FILE__)
   end
 
+  def self.binary_path()
+    File.expand_path('../../coffeelint/bin/coffeelint', __FILE__)
+  end
+
   def self.colorize(str, color_code)
     "\e[#{color_code}m#{str}\e[0m"
   end
@@ -54,14 +58,13 @@ module Coffeelint
   end
 
   def self.lint_dir(directory, config = {}, context = Coffeelint.context)
-    retval = {}
-    filtered_path = filter(directory)
+    config_path = config.fetch(:config_file, CoffeeLint::Config.locate)
 
-    Dir.glob(filtered_path) do |name|
-      retval[name] = Coffeelint.lint_file(name, config, context)
-      yield name, retval[name] if block_given?
-    end
-    retval
+    cmd = [binary_path]
+    cmd << "-f #{config_path}" if config_path
+    cmd.concat Dir.glob(filter(directory))
+
+    system cmd.join(" ")
   end
 
   def self.filter(directory)
@@ -119,9 +122,6 @@ module Coffeelint
   end
 
   def self.run_test_suite(directory, config = {})
-    pretty_output = config.has_key?(:pretty_output) ? config.delete(:pretty_output) : true
-    Coffeelint.lint_dir(directory, config).map do |name, errors|
-      Coffeelint.display_test_results(name, errors, pretty_output)
-    end.inject(0, :+)
+    Coffeelint.lint_dir(directory, config)
   end
 end
